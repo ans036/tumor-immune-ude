@@ -45,6 +45,17 @@ Despite recent advances in Scientific Machine Learning applications to biologica
 
 Our work addresses these limitations through a progressive research workflow with several key contributions: (i) the development of a dual-network hybrid UDE as an initial exploration that augments mechanistic growth with learned immune dynamics, (ii) the evolution to a pure mechanistic UDE that builds upon hybrid insights while maintaining full parameter interpretability, (iii) implementation of rigorous cross-validation with validation-based early stopping to ensure robust model evaluation, (iv) comprehensive forecasting analysis demonstrating superior predictive accuracy for both short-term and long-term horizons, (v) implementation of biologically consistent constraints and physics-informed priors, and (vi) provision of a fully reproducible Julia implementation with extensive performance metrics.
 
+
+% ===========================
+\section{Statement of need}
+
+Computational oncology lacks accessible, interpretable tools for modeling tumor--immune interactions that balance mechanistic understanding with predictive accuracy. Existing approaches are either purely mechanistic models that underfit complex biological dynamics, or black-box machine learning methods that lack biological interpretability. Clinicians and researchers need models that can provide both accurate forecasts and mechanistic insight into tumor--immune dynamics. Our Julia package addresses this gap by providing a UDE-based framework for tumor--immune modeling that: (i) integrates domain knowledge through physics-informed constraints, (ii) learns interpretable biological parameters within classical mathematical frameworks, (iii) provides robust forecasting capabilities validated through cross-validation, and (iv) leverages Julia's SciML ecosystem for computational efficiency, making these methods practical for research and potential clinical translation.
+
+% ===========================
+\section{State of the field}
+
+Several approaches exist for modeling tumor--immune dynamics. Classical mechanistic models such as the Kuznetsov--Taylor model \cite{kuznetsov1994} and the de Pillis--Radunskaya system \cite{depillis2005validated} provide interpretable frameworks but often become parameter-heavy and difficult to calibrate with limited clinical data. The Gompertz growth model \cite{vaghi2020gompertz} offers a reliable description of tumor growth kinetics but lacks immune interaction terms. On the machine learning side, Neural ODEs \cite{chen2018node} and Physics-Informed Neural Networks \cite{raissi2019pinn} have shown promise in scientific applications, but their direct application to tumor--immune modeling remains limited. Universal Differential Equations \cite{rackauckas2020ude} represent the most relevant advancement, enabling hybrid mechanistic-neural models. However, existing UDE applications in biology \cite{shen2023differentiable,aboelyazeed2023differentiable,dandekar2020machine} have not specifically addressed tumor--immune dynamics with rigorous cross-validation and forecasting frameworks. Our work distinguishes itself by: (i) applying UDEs specifically to tumor--immune interactions with biologically-constrained Gompertz growth and Michaelis--Menten immune killing, (ii) implementing a progressive workflow from hybrid to pure mechanistic UDEs that achieves both high accuracy and full interpretability, and (iii) providing comprehensive cross-validation and forecasting evaluation suitable for clinical translation assessment.
+
 % ===========================
 \section{Methodology}
 
@@ -311,6 +322,25 @@ Given sparse immune measurements, we construct continuous immune functions $I(t)
 
 \subsubsection{Group Formation}
 Data is grouped by \{KineticID, TumorID\} combinations, yielding independent trajectories for model training and evaluation. Groups with fewer than 2 time points are excluded to ensure adequate temporal resolution for forecasting evaluation.
+
+% ===========================
+\section{Software design}
+
+Our implementation is organized as a modular Julia package leveraging the SciML ecosystem. The codebase follows a clear separation of concerns with the following structure:
+
+\textbf{Core Modules:} The \texttt{src/} directory contains the main implementation files. \texttt{EnhancedPINODE.jl} implements the dual-network hybrid UDE (Phase 1), including the Immune Response Network (IRN) and Time-Aware Correction Network (TACN). \texttt{PureMechanisticUDE.jl} implements the pure mechanistic UDE (Phase 2) with dynamic Gompertz growth and Michaelis--Menten immune killing. \texttt{FutureWorks.jl} provides extensions and experimental features for ongoing research.
+
+\textbf{Neural Network Components:} Custom residual blocks with layer normalization are implemented using Flux.jl \cite{innes2018flux}. The networks use SELU activation for hidden layers and sigmoid/softplus outputs with appropriate scaling to enforce biological parameter bounds.
+
+\textbf{ODE Integration:} DifferentialEquations.jl \cite{rackauckas2017de} provides the Tsit5() solver with InterpolatingAdjoint() from SciMLSensitivity.jl for efficient gradient computation. Strict tolerances (abstol=$10^{-8}$, reltol=$10^{-8}$) ensure numerical accuracy.
+
+\textbf{Optimization Pipeline:} A two-phase training protocol uses Optimization.jl: Phase 1 employs AdamW with cosine learning rate scheduling, and Phase 2 refines with L-BFGS for local convergence.
+
+\textbf{Data Processing:} Input data is read from CSV files in the \texttt{Data/} directory. Cubic spline interpolation constructs continuous immune functions from sparse measurements. Group-wise normalization ensures numerical stability.
+
+\textbf{Testing:} The \texttt{test/} directory contains unit tests for both UDE variants, and a CI workflow (\texttt{.github/workflows/ci.yml}) runs automated testing via GitHub Actions.
+
+The package is publicly available at \url{https://github.com/ans036/tumor-immune-ude} and requires Julia 1.9+ with DifferentialEquations.jl, Flux.jl, SciMLSensitivity.jl, and Optimization.jl as primary dependencies.
 
 % ===========================
 \section{Results}
@@ -622,6 +652,16 @@ The forecasting performance achieved through our cross-validation framework repr
 Looking forward, this work opens several promising research directions. Extension to multi-scale models could capture molecular-level interactions alongside tissue-level dynamics. Integration of multi-omics data could provide personalized parameter initialization. Real-time adaptation capabilities could enable truly personalized treatment protocols that adjust based on ongoing patient response. Uncertainty quantification mechanisms could provide rigorous confidence intervals for clinical decision-making.
 
 In conclusion, our progressive approach advances the application of Scientific Machine Learning in oncology by demonstrating how initial explorations can inform the development of highly accurate, interpretable models with robust forecasting capabilities. The combination of biological insight, computational efficiency, and rigorous validation positions these approaches as valuable tools for both scientific discovery and clinical translation, representing a significant step toward personalized, prediction-guided cancer therapy.
+
+% ===========================
+\section{Research impact statement}
+
+This work advances the application of Scientific Machine Learning in computational oncology by demonstrating that Universal Differential Equations can achieve both high predictive accuracy and full biological interpretability for tumor--immune dynamics modeling. The progressive workflow methodology presented here---from exploratory hybrid models to interpretable mechanistic UDEs---provides a replicable template for applying SciML techniques to other complex biological systems. The forecasting capabilities (MAPE of 1.8\% for short-term and 4.3\% for medium-term predictions) approach clinical decision-support thresholds, suggesting potential for integration into treatment planning workflows. The physics-informed constraints ensure biological plausibility, which is essential for clinical trust and adoption. Beyond oncology, the techniques developed here---including biologically-constrained parameter learning, validation-based early stopping in cross-validation, and multi-objective physics-informed loss functions---are transferable to other domains where mechanistic understanding must be balanced with data-driven flexibility. The open-source Julia implementation contributes to the growing SciML ecosystem and enables reproducible research in computational biology.
+
+% ===========================
+\section{AI usage disclosure}
+
+AI-assisted tools (GitHub Copilot and Claude by Anthropic) were used during the development of this project for code assistance, debugging support, and manuscript drafting and editing. All AI-generated content was critically reviewed, verified, and revised by the author. The scientific methodology, experimental design, model architectures, and interpretation of results are entirely the work of the author. The AI tools served as productivity aids and did not influence the scientific conclusions of this work.
 
 \bibliographystyle{juliacon}
 \bibliography{ref}
