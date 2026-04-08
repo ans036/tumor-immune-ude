@@ -14,8 +14,8 @@
 
 \graphicspath{{figures/}}
 
-\title{Universal Differential Equations for Tumor--Immune Dynamics:\\
-A Progressive Modeling Workflow in Julia's SciML Ecosystem}
+\title{Biologically Consistent Universal Differential Equations for Tumor--Immune Dynamics:\\
+Towards a more interpretable approach}
 
 \author[1]{Anish Sarkar\thanks{ORCID: \href{https://orcid.org/0009-0009-7965-7788}{0009-0009-7965-7788}}}
 \affil[1]{Netaji Subhash Engineering College (MAKAUT)}
@@ -25,7 +25,7 @@ A Progressive Modeling Workflow in Julia's SciML Ecosystem}
 \maketitle
 
 \begin{abstract}
-We present a study of Universal Differential Equations (UDEs) for modeling tumor--immune dynamics using Julia's SciML ecosystem. We develop and compare two UDE architectures in a progressive workflow: (A) a dual-network hybrid approach that augments mechanistic Gompertz growth with neural networks to capture unmodeled immune dynamics ($R^2 = 0.897$), and (B) a structured-parameter UDE that uses neural networks to learn context-dependent parameters within classical Gompertz and Michaelis--Menten frameworks ($R^2 = 0.991$). Both variants enforce biological constraints through physics-informed loss functions. Cross-validation with validation-based early stopping yields mean $R^2 = 0.945$ on held-out groups. Our implementation leverages DifferentialEquations.jl, Flux.jl, and SciMLSensitivity.jl. Code and data are publicly available.
+We present a study of Universal Differential Equations (UDEs) for modeling tumor--immune dynamics---a progressive modeling workflow in Julia's SciML ecosystem. We develop and compare two UDE architectures: (A) a dual-network hybrid approach that augments mechanistic Gompertz growth with neural networks to capture unmodeled immune dynamics ($R^2 = 0.897$), and (B) a structured-parameter UDE that uses neural networks to learn context-dependent parameters within classical Gompertz and Michaelis--Menten frameworks ($R^2 = 0.991$). Both variants enforce biological constraints through physics-informed loss functions. Cross-validation with validation-based early stopping yields mean $R^2 = 0.945$ on held-out groups. Our implementation leverages DifferentialEquations.jl, Flux.jl, and SciMLSensitivity.jl. Code and data are publicly available.
 \end{abstract}
 
 \noindent\textbf{Keywords:} Universal Differential Equations; Scientific Machine Learning; Tumor--Immune Dynamics; Julia; SciML; Gompertz Growth; Michaelis--Menten Kinetics; Cross-Validation.
@@ -37,15 +37,17 @@ Modeling tumor--immune interactions is a long-standing challenge in computationa
 
 Julia's SciML ecosystem provides strong infrastructure for UDE development through DifferentialEquations.jl \cite{rackauckas2017de}, Flux.jl \cite{innes2018flux}, and SciMLSensitivity.jl for adjoint-based gradient computation \cite{bezanson2017julia,innes2019differentiable,rackauckas2019diffeqflux}. While UDEs have been applied in hydrology and epidemiology \cite{shen2023differentiable,aboelyazeed2023differentiable,dandekar2020machine}, their application to tumor--immune modeling with rigorous cross-validation remains underexplored.
 
-This paper makes the following contributions: (i) a dual-network hybrid UDE that augments Gompertz growth with learned immune dynamics, (ii) a structured-parameter UDE where neural networks learn context-dependent parameters within classical frameworks, (iii) cross-validation with validation-based early stopping for robust evaluation, and (iv) a fully reproducible Julia implementation.
+This paper presents a progressive modeling workflow for tumor--immune dynamics in Julia's SciML ecosystem, with the following contributions: (i) a dual-network hybrid UDE that augments Gompertz growth with learned immune dynamics, (ii) a structured-parameter UDE where neural networks learn context-dependent parameters within classical frameworks, (iii) cross-validation with validation-based early stopping for robust evaluation, and (iv) a fully reproducible Julia implementation.
 
 % ===========================
 \section{Statement of need}
+\label{sec:statement-of-need}
 
 Researchers modeling tumor--immune interactions need tools that balance mechanistic interpretability with predictive accuracy. Existing approaches are either purely mechanistic models that underfit or black-box methods that lack biological grounding. Our Julia package provides a UDE-based framework that integrates domain knowledge through physics-informed constraints, learns interpretable biological parameters, and provides cross-validated forecasting---all within Julia's SciML ecosystem.
 
 % ===========================
 \section{State of the field}
+\label{sec:state-of-the-field}
 
 Classical tumor--immune models such as the Kuznetsov--Taylor model \cite{kuznetsov1994} and the de Pillis--Radunskaya system \cite{depillis2005validated} provide interpretable frameworks but are parameter-heavy and difficult to calibrate with sparse data. The Gompertz model \cite{vaghi2020gompertz} describes tumor growth kinetics well but lacks immune interaction terms. Neural ODEs \cite{chen2018node} and Physics-Informed Neural Networks \cite{raissi2019pinn} have shown promise in scientific applications. UDEs \cite{rackauckas2020ude} enable hybrid mechanistic-neural models, though existing applications in biology \cite{shen2023differentiable,aboelyazeed2023differentiable,dandekar2020machine} have not specifically targeted tumor--immune dynamics with cross-validated evaluation. Our work applies UDEs to this domain with biologically-constrained Gompertz growth and Michaelis--Menten immune killing, using a progressive workflow from hybrid to structured-parameter models.
 
@@ -146,7 +148,8 @@ Tumor volumes are normalized by 1000~mm\textsuperscript{3} for numerical stabili
 For each held-out tumor group, training sets include data from other conditions for the same tumor type plus data from the held-out condition for other tumor types. This yields five held-out groups (C2-T1 through C2-T4, C4-T5) for evaluation.
 
 % ===========================
-\section{Software Design}
+\section{Software design}
+\label{sec:software-design}
 
 The implementation is a modular Julia package. \texttt{EnhancedPINODE.jl} implements the dual-network hybrid UDE (Phase~1). \texttt{PureMechanisticUDE.jl} implements the structured-parameter UDE (Phase~2). Neural networks use Flux.jl \cite{innes2018flux}, ODE integration uses DifferentialEquations.jl \cite{rackauckas2017de} with SciMLSensitivity.jl, and optimization uses Optimization.jl \cite{rackauckas2019diffeqflux}. The \texttt{test/} directory contains unit tests with CI via GitHub Actions. The package is available at \url{https://github.com/ans036/tumor-immune-ude} and requires Julia 1.9+.
 
@@ -334,11 +337,13 @@ We have presented a progressive UDE workflow for tumor--immune dynamics modeling
 
 % ===========================
 \section{Research impact statement}
+\label{sec:research-impact-statement}
 
 This work demonstrates the application of Universal Differential Equations to tumor--immune dynamics modeling within Julia's SciML ecosystem. The progressive workflow from hybrid to structured-parameter models provides a replicable template for applying UDEs to biological systems. The physics-informed constraints and cross-validation framework contribute methodological tools that are transferable to other domains. The open-source implementation supports reproducible research in computational biology.
 
 % ===========================
 \section{AI usage disclosure}
+\label{sec:ai-usage-disclosure}
 
 AI-assisted tools (GitHub Copilot and Claude by Anthropic) were used during development for code assistance, debugging, and manuscript editing. All content was reviewed, verified, and revised by the author. The scientific methodology, experimental design, model architectures, and interpretation of results are the work of the author.
 
