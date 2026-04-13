@@ -19,7 +19,7 @@ using SciMLBase                     # for successful_retcode, ODE types
 
 # ---------- constants ----------
 const PLOT_THEME_NAME = :vibrant
-const PLOT_THEME_KW = (titlefontsize=16, guidefontsize=12, legendfontsize=10, grid=true, framestyle=:box, title_loc=:left)
+const PLOT_THEME_KW = (titlefontsize=20, guidefontsize=16, legendfontsize=14, tickfontsize=14, grid=true, framestyle=:box, title_loc=:left)
 const COLORS = ColorSchemes.tab20.colors
 const VOL_SCALE = 1000.0
 const IMMUNE_SCALE = 100.0
@@ -604,8 +604,5 @@ end
 # ---------- Script guard (don’t run on include, only when executed) ----------
 if abspath(PROGRAM_FILE) == @__FILE__
     main(
-        time_file="C:\\tubai\\Downloads\\tumor_time_to_event_data.csv",
-        immune_rate_file="C:\\tubai\\Downloads\\tumor_volume_vs_Im_cells_rate.csv",
-        save_plots=true
-    )
-end
+        time_file=joinpath(@__DIR__, "..", "Data", "tumor_time_to_event_data.csv"),
+        immune_rate_file=joinpath(@__DIR__, "..", "Data", "tumor_volume_vs_Im_cells_rate.

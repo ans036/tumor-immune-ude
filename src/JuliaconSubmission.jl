@@ -25,9 +25,10 @@ using SciMLBase
 
 const PLOT_THEME_NAME = :vibrant
 const PLOT_THEME_KW = (
-     titlefontsize=16,
-     guidefontsize=12,
-     legendfontsize=10,
+     titlefontsize=20,
+     guidefontsize=16,
+     legendfontsize=14,
+     tickfontsize=14,
      grid=true,
      framestyle=:box,
      title_loc=:left
@@ -1199,9 +1200,5 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     θ_final, losses, groups, re_immune, re_corr, net_sizes, t_min, t_max = main(
-        time_file="C:\\tubai\\Downloads\\tumor_time_to_event_data.csv",
-        immune_file="C:\\tubai\\Downloads\\tumor_volume_vs_Im_cells_rate.csv",
-        save_plots=true
-    )
-end
-
+        time_file=joinpath(@__DIR__, "..", "Data", "tumor_time_to_event_data.csv"),
+        immune_file=joinpath(@__DIR__, "..", "Data", "tumor_volume_vs_Im_cells_r

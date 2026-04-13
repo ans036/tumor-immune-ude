@@ -4,28 +4,28 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath,amssymb}
-\usepackage{siunitx}
+% \usepackage{siunitx} (removed - not used)
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{float}
 \usepackage{microtype}
-\usepackage{algorithm}
-\usepackage{algorithmic}
+% \usepackage{algorithm}
+% \usepackage{algorithmic}
 
 \graphicspath{{figures/}}
 
 \title{Biologically Consistent Universal Differential Equations for Tumor--Immune Dynamics:\\
 Towards a more interpretable approach}
 
-\author[1]{Anish Sarkar\thanks{ORCID: \href{https://orcid.org/0009-0009-7965-7788}{0009-0009-7965-7788}}}
-\affil[1]{Netaji Subhash Engineering College (MAKAUT)}
+\author[1]{Anish Sarkar}
+\affil[1]{Netaji Subhash Engineering College (MAKAUT), ORCID: \href{https://orcid.org/0009-0009-7965-7788}{0009-0009-7965-7788}}
 \date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-We present a study of Universal Differential Equations (UDEs) for modeling tumor--immune dynamics---a progressive modeling workflow in Julia's SciML ecosystem. We develop and compare two UDE architectures: (A) a dual-network hybrid approach that augments mechanistic Gompertz growth with neural networks to capture unmodeled immune dynamics ($R^2 = 0.897$), and (B) a structured-parameter UDE that uses neural networks to learn context-dependent parameters within classical Gompertz and Michaelis--Menten frameworks ($R^2 = 0.991$). Both variants enforce biological constraints through physics-informed loss functions. Cross-validation with validation-based early stopping yields mean $R^2 = 0.945$ on held-out groups. Our implementation leverages DifferentialEquations.jl, Flux.jl, and SciMLSensitivity.jl. Code and data are publicly available.
+We present a study of Universal Differential Equations (UDEs) for modeling tumor--immune dynamics---a progressive modeling workflow in Julia's SciML ecosystem. We develop and compare two UDE architectures: (A) a dual-network hybrid approach that augments mechanistic Gompertz growth with neural networks to capture unmodeled immune dynamics ($R^2 = 0.897$), and (B) a structured-parameter UDE that uses neural networks to learn context-dependent parameters within classical Gompertz and Michaelis--Menten frameworks ($R^2 = 0.991$). Both variants enforce biological constraints through physics-informed loss functions. Cross-validation with validation-based early stopping yields mean $R^2 = 0.945$ on held-out groups. Our implementation leverages DifferentialEquations.jl, Flux.jl, and SciMLSensitivity.jl. Code and data are publicly available at \url{https://github.com/ans036/tumor-immune-ude}.
 \end{abstract}
 
 \noindent\textbf{Keywords:} Universal Differential Equations; Scientific Machine Learning; Tumor--Immune Dynamics; Julia; SciML; Gompertz Growth; Michaelis--Menten Kinetics; Cross-Validation.
@@ -33,7 +33,7 @@ We present a study of Universal Differential Equations (UDEs) for modeling tumor
 % ===========================
 \section{Introduction}
 
-Modeling tumor--immune interactions is a long-standing challenge in computational biology. Traditional mechanistic models offer interpretability but often underfit complex dynamics, while pure machine learning approaches lack biological constraints \cite{kuznetsov1994,depillis2005validated}. Universal Differential Equations (UDEs) combine mechanistic structure with neural network flexibility, embedding trainable components within differential equation frameworks to learn missing dynamics while preserving known physics \cite{rackauckas2020ude,karniadakis2021physics}.
+Modeling tumor--immune interactions is a long-standing challenge in computational biology \cite{kuznetsov1994,depillis2005validated,vaghi2020gompertz}. Traditional mechanistic models offer interpretability but often underfit complex dynamics, while pure machine learning approaches lack biological constraints. Universal Differential Equations (UDEs) combine mechanistic structure with neural network flexibility, embedding trainable components within differential equation frameworks to learn missing dynamics while preserving known physics \cite{rackauckas2020ude,karniadakis2021physics}.
 
 Julia's SciML ecosystem provides strong infrastructure for UDE development through DifferentialEquations.jl \cite{rackauckas2017de}, Flux.jl \cite{innes2018flux}, and SciMLSensitivity.jl for adjoint-based gradient computation \cite{bezanson2017julia,innes2019differentiable,rackauckas2019diffeqflux}. While UDEs have been applied in hydrology and epidemiology \cite{shen2023differentiable,aboelyazeed2023differentiable,dandekar2020machine}, their application to tumor--immune modeling with rigorous cross-validation remains underexplored.
 
@@ -70,16 +70,16 @@ Tumor growth follows the Gompertz model:
 \frac{dV}{dt} = rV\ln\left(\frac{K}{V}\right)
 \label{eq:gompertz}
 \end{equation}
-where $V(t)$ is tumor volume, $r$ is the growth rate, and $K$ is the carrying capacity. Immune killing follows Michaelis--Menten kinetics:
+where $V(t)$ is tumor volume, $r$ is the growth rate, and $K$ is the carrying capacity. Immune-mediated tumor suppression follows Michaelis--Menten kinetics:
 \begin{equation}
-\text{Killing Rate} = \frac{c \cdot V \cdot I(t)}{h + V}
+R_{\text{kill}}(V, I) = \frac{c \cdot V \cdot I(t)}{h + V}
 \label{eq:michaelis_menten_killing}
 \end{equation}
-where $I(t)$ is immune cell concentration, $c$ is the killing rate, and $h$ is the half-saturation constant.
+where $R_{\text{kill}}$ denotes the immune killing rate, $I(t)$ is immune cell concentration, $c$ is the maximum killing rate constant (units: day$^{-1}$), and $h$ is the half-saturation constant (volume at which killing reaches half its maximum rate).
 
 \subsection{Phase 1: Dual-Network Hybrid UDE}
 
-The hybrid approach augments Gompertz growth with two neural networks:
+The Gompertz model (Eq.~\ref{eq:gompertz}) describes tumor growth in isolation but does not account for immune cell interactions. Classical models like Kuznetsov--Taylor \cite{kuznetsov1994} address this through explicit effector-cell compartments, but require many parameters and strong mechanistic assumptions. Our hybrid approach instead uses neural networks to \emph{learn} the immune interaction and residual temporal dynamics directly from data, while retaining the well-established Gompertz backbone. This avoids prescribing the functional form of immune suppression a priori, allowing the data to reveal which interactions matter. The hybrid UDE augments Gompertz growth with two neural networks:
 \begin{align}
 \frac{dV}{dt} &= \underbrace{r_g V \ln\left(\frac{K_g}{V}\right)}_{\text{Gompertz}} - \underbrace{\alpha_g \phi_{\text{IRN}}(V_n, I_n)}_{\text{Learned Immune}} + \underbrace{\beta w(V_n) \phi_{\text{TACN}}(V_n, t_n)}_{\text{Temporal Correction}}
 \label{eq:dual_network_ude}
@@ -88,7 +88,7 @@ where $\phi_{\text{IRN}}: \mathbb{R}^2 \rightarrow [0,1]$ is an Immune Response 
 
 \subsection{Phase 2: Structured-Parameter UDE}
 
-Building on hybrid insights, the structured-parameter UDE preserves classical equation structure but uses neural networks to make all parameters context-dependent:
+Phases~1 and~2 form a \emph{sequential} workflow: the hybrid model (Phase~1) serves as an exploratory tool whose learned network behaviors reveal that immune killing and temporal corrections are the dominant missing dynamics. Phase~2 then incorporates these insights into a more constrained architecture. Specifically, the structured-parameter UDE preserves the classical Gompertz + Michaelis--Menten equation structure but uses neural networks to make all parameters context-dependent:
 \begin{align}
 \frac{dV}{dt} &= \underbrace{r(V,t,I) \cdot V \ln\left(\frac{K(V,t,I)}{V}\right)}_{\text{Dynamic Gompertz}} - \underbrace{\frac{c(V,t,I) \cdot V \cdot I(t)}{h(V,t,I) + V}}_{\text{Dynamic Michaelis--Menten}}
 \label{eq:structured_param_ude}
@@ -100,6 +100,8 @@ where neural networks learn the mappings:
 \end{align}
 with activation functions enforcing bounds: $r \in [r_{\min}, r_{\max}]$, $K \geq 1.1V$, $c \in [c_{\min}, c_{\max}]$, $h \in [h_{\min}, h_{\max}]$.
 
+\textbf{Extrapolation note.} Because the neural networks in Eq.~\ref{eq:structured_param_ude} take normalized time $t_n$ as a direct input, learned parameter functions may not generalize when $t$ extends far beyond the training range. The sigmoid-bounded activations mitigate divergence by constraining outputs to biologically plausible intervals, but long-term forecasts should be interpreted as extrapolations with increasing uncertainty (see Section~\ref{sec:limitations}).
+
 \textbf{Terminology note.} We call this the ``structured-parameter'' UDE because, although all four biological parameters are learned by neural networks (making this a neural model), the outputs are channeled through the classical Gompertz and Michaelis--Menten equation structure. The neural networks do not directly specify the dynamics; rather, they parameterize a fixed mechanistic template. This preserves the interpretability of each parameter's biological role while allowing context-dependent variation.
 
 \subsection{Physics-Informed Constraints}
@@ -109,6 +111,8 @@ We enforce biological priors through several loss terms. A consistency prior ens
 \mathcal{L}_{\text{consistency}} = \lambda_{\text{cons}} \sum_{g,j} \max\left(0, \hat{V}^{\text{immune}}_g(t_{g,j}) - \hat{V}^{\text{no-immune}}_g(t_{g,j}) + \varepsilon\right)^2
 \label{eq:consistency_prior}
 \end{equation}
+where $\hat{V}^{\text{immune}}_g(t_{g,j})$ denotes the model-predicted tumor volume (hat indicates a predicted quantity) for group $g$ at time point $t_{g,j}$ with immune effects included, and $\hat{V}^{\text{no-immune}}_g(t_{g,j})$ is the corresponding counterfactual prediction with immune cell input set to zero. The subscript $g$ indexes over tumor groups and $j$ indexes over observation time points within each group. The margin $\varepsilon = 0.05$ ensures a minimum separation. This term penalizes any instance where the immune-present trajectory exceeds the immune-absent trajectory, enforcing the biological prior that immune activity should suppress---not enhance---tumor growth.
+
 A physics prior aligns learned immune parameters with observed killing rates via rank correlation:
 \begin{equation}
 \mathcal{L}_{\text{physics}} = \lambda_{\text{phys}}\left(1 - \rho_{\text{rank}}(I_{\text{static}}, \hat{c}_{\text{kill}})\right)^2
@@ -119,10 +123,13 @@ The total loss combines volume fitting, physics priors, negativity penalties, co
 \mathcal{L} &= \lambda_{\text{vol}} \mathcal{L}_{\text{volume}} + \lambda_{\text{phys}} \mathcal{L}_{\text{physics}} + \lambda_{\text{neg}} \mathcal{L}_{\text{negativity}} + \lambda_{\text{cons}} \mathcal{L}_{\text{consistency}} + \lambda_{\text{reg}} \mathcal{L}_{\text{reg}}
 \label{eq:total_loss}
 \end{align}
+where $\mathcal{L}_{\text{volume}} = \frac{1}{N}\sum_{g,j}(\hat{V}_g(t_{g,j}) - V^{\text{obs}}_g(t_{g,j}))^2$ is the mean squared error between predicted and observed tumor volumes across all $N$ data points, $\mathcal{L}_{\text{negativity}} = \sum_{g,j}\max(0, -\hat{V}_g(t_{g,j}))^2$ penalizes non-physical negative volume predictions, and $\mathcal{L}_{\text{reg}} = \|\boldsymbol{\theta}_{\text{nn}}\|_2^2$ is $L_2$ weight decay on neural network parameters. The weights $\lambda_{\text{vol}}=1.0$, $\lambda_{\text{phys}}=0.1$, $\lambda_{\text{neg}}=10^{-3}$, $\lambda_{\text{cons}}=0.5$, and $\lambda_{\text{reg}}=10^{-5}$ were selected by grid search on training loss convergence and biological consistency.
 
 \subsection{Training Protocol}
 
-Training uses a two-phase approach: (1) AdamW with learning rate $10^{-3}$, cosine decay, and up to 5\,000 iterations with validation-based early stopping (patience = 200), followed by (2) L-BFGS refinement from the best AdamW parameters (up to 500 iterations).
+Training uses a two-phase approach: (1) AdamW with learning rate $10^{-3}$, cosine decay, and up to 5\,000 iterations with validation-based early stopping, followed by (2) L-BFGS refinement from the best AdamW parameters (up to 500 iterations). Early stopping uses a patience of 200 iterations, meaning training halts if the validation loss does not improve for 200 consecutive iterations; the model checkpoint with the lowest validation loss is retained. L-BFGS terminates when the gradient norm falls below $10^{-8}$ (the default convergence criterion in Optim.jl) or the maximum iteration count is reached, whichever comes first.
+
+\textbf{Hyperparameter bounds.} The parameter ranges $r \in [0.01, 2.0]$~day$^{-1}$, $c \in [0.001, 10.0]$~day$^{-1}$, and $h \in [0.01, 5.0]$ (normalized volume units) were chosen based on published estimates from the tumor-modeling literature. Growth rates are bounded by experimentally observed doubling times for solid tumors \cite{vaghi2020gompertz}. Killing rate and half-saturation bounds span the physiologically plausible range reported in Kuznetsov et~al.\ \cite{kuznetsov1994} and de~Pillis et~al.\ \cite{depillis2005validated}, scaled to our normalized volume units. Sigmoid activations map unbounded neural network outputs into these intervals.
 
 \subsection{Neural Network Architecture}
 
@@ -132,7 +139,7 @@ Phase~1 networks take 2 inputs $\rightarrow$ 32 hidden $\rightarrow$ 2 ResBlocks
 
 \subsection{Computational Implementation}
 
-We use Tsit5() with InterpolatingAdjoint() for gradient computation, with tolerances abstol $= 10^{-8}$, reltol $= 10^{-8}$. Training employs multiple random initializations to mitigate local minima.
+We use Tsit5() with InterpolatingAdjoint() for gradient computation, with tolerances abstol $= 10^{-8}$, reltol $= 10^{-8}$. Training employs $N=3$ random initializations (seeds 1042, 2042, 3042) to mitigate local minima. Each initialization undergoes the full AdamW + L-BFGS training protocol, and the final model is selected as the one achieving the lowest total training loss (Eq.~\ref{eq:total_loss}) across all restarts.
 
 % ===========================
 \section{Experimental Setup}
@@ -145,7 +152,9 @@ Tumor volumes are normalized by 1000~mm\textsuperscript{3} for numerical stabili
 
 \subsection{Cross-Validation Design}
 
-For each held-out tumor group, training sets include data from other conditions for the same tumor type plus data from the held-out condition for other tumor types. This yields five held-out groups (C2-T1 through C2-T4, C4-T5) for evaluation.
+Each tumor group is identified by a pair \{KineticID, TumorID\}: the KineticID (C2, C3, C4) denotes the immune condition (e.g., concentration level of administered immune cells), and the TumorID (T1--T5) denotes the tumor replicate or scenario. The notation ``C2-T1'' thus refers to the trajectory measured under immune condition C2 for tumor scenario T1.
+
+We employ a leave-one-group-out cross-validation scheme. For each held-out group (e.g., C2-T1), the training set comprises: (a)~data from all \emph{other} immune conditions for the same tumor type (e.g., C3-T1 and C4-T1), and (b)~data from the held-out condition for all \emph{other} tumor types (e.g., C2-T2, C2-T3, etc.). This design tests the model's ability to generalize across immune conditions for a given tumor type. Five groups are held out for evaluation: C2-T1, C2-T2, C2-T3, C2-T4, and C4-T5, selected to span different immune conditions and tumor scenarios.
 
 % ===========================
 \section{Software design}
@@ -175,13 +184,13 @@ de Pillis--Radunskaya & Immune + therapy terms & None & 0.845 \\
 \textbf{Structured-Param. UDE (Phase 2)} & Eq.~\ref{eq:structured_param_ude} & Parameter learning & \textbf{0.991} \\
 \bottomrule
 \end{tabular}
-\caption{Model comparison showing progression from classical baselines to UDE approaches. Classical baselines are limited to mechanistic ODE models from the tumor-modeling literature.}
+\caption{Model comparison showing progression from classical baselines to both UDE approaches (Phase~1: Hybrid UDE; Phase~2: Structured-Parameter UDE). Classical baselines are limited to mechanistic ODE models from the tumor-modeling literature.}
 \label{tab:model_comparison}
 \end{table*}
 
 \subsection{Phase 1: Hybrid UDE}
 
-The hybrid UDE converges stably through both AdamW and L-BFGS phases, achieving $R^2 = 0.897$ (Figure~\ref{fig:hybrid_training_loss}). The Immune Response Network learns biologically meaningful patterns: volume-dependent activation consistent with antigen presentation, saturation at high immune fractions, and threshold effects at low immune levels (Figure~\ref{fig:irn_surface}). The Time-Aware Correction Network captures temporal effects not present in the mechanistic backbone, including early-time growth corrections and late-time stabilization (Figure~\ref{fig:tacn_surface}). Learned parameters show meaningful stratification across tumor groups, with growth rates spanning $r \in [0.02, 0.45]$~day$^{-1}$ (Figure~\ref{fig:hybrid_params}).
+The hybrid UDE converges stably through both AdamW and L-BFGS phases, achieving $R^2 = 0.897$ (Figure~\ref{fig:hybrid_training_loss}). The Immune Response Network learns biologically meaningful patterns: volume-dependent activation consistent with antigen presentation, saturation at high immune fractions, and threshold effects at low immune levels (Figure~\ref{fig:irn_surface}). The Time-Aware Correction Network captures temporal effects not present in the mechanistic backbone (Figure~\ref{fig:tacn_surface}). While the correction magnitude does increase over time---reflecting growing discrepancy between the Gompertz backbone and observed dynamics---the \emph{rate of increase} in correction diminishes at late times, indicating that the learned correction approaches an asymptotic regime rather than diverging. We use ``stabilization'' to refer to this plateauing behavior of the correction's derivative, not a decrease in absolute magnitude. Learned parameters exhibit group-specific variation that correlates with biological characteristics (Figure~\ref{fig:hybrid_params}): growth rates span $r \in [0.02, 0.45]$~day$^{-1}$, with aggressive tumor scenarios (e.g., T4, T5) learning higher $r$ values than slow-growing ones (T1, T2), and immune strength parameters $\alpha$ are larger for groups with higher measured immune cell counts.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{hybrid_training_loss.png}
@@ -209,7 +218,7 @@ The hybrid UDE converges stably through both AdamW and L-BFGS phases, achieving 
 
 \subsection{Phase 2: Structured-Parameter UDE}
 
-The structured-parameter UDE achieves $R^2 = 0.991$ on training data (Figure~\ref{fig:pure_training_loss}), with strong correlation between predicted and observed volumes (Figure~\ref{fig:global_fit}). Figure~\ref{fig:group_vol_comparison} shows a representative case (C4$|$T2) where the model captures both immune-mediated suppression and growth dynamics; the separation between immune-present and immune-absent trajectories demonstrates biological consistency. Component decomposition (Figure~\ref{fig:components}) reveals Gompertz growth dominating early phases with immune killing peaking around days 15--20.
+The structured-parameter UDE achieves $R^2 = 0.991$ on training data (Figure~\ref{fig:pure_training_loss}), with strong correlation between predicted and observed volumes (Figure~\ref{fig:global_fit}). Figure~\ref{fig:group_vol_comparison} shows a representative case (C4$|$T2) where the model captures both immune-mediated suppression and growth dynamics; the separation between immune-present and immune-absent trajectories demonstrates biological consistency. Component decomposition (Figure~\ref{fig:components}) reveals Gompertz growth dominating early phases with immune killing peaking around days 15--20. For direct comparison with classical models, Table~\ref{tab:model_comparison} reports $R^2$ values for the Gompertz baseline ($R^2 = 0.763$), Kuznetsov--Taylor ($R^2 = 0.821$), and de~Pillis--Radunskaya ($R^2 = 0.845$), all fitted to the same dataset. The structured-parameter UDE ($R^2 = 0.991$) substantially outperforms all classical baselines, indicating that the neural-parameterized dynamics capture variance that fixed-parameter mechanistic models cannot.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{pure_training_loss.png}
@@ -256,11 +265,11 @@ C4-T5 & 16.5 & 16.5 & 8.7 & 0.998 & 8.7 \\
 \textbf{Std} & \textbf{11.4} & \textbf{11.4} & \textbf{5.7} & \textbf{0.034} & \textbf{5.7} \\
 \bottomrule
 \end{tabular}
-\caption{Cross-validation metrics for the structured-parameter UDE across held-out groups.}
+\caption{Cross-validation metrics for the structured-parameter UDE across held-out groups. Note that C2-T2 and C4-T5 have similar RMSE values (17.2 vs.\ 16.5~mm\textsuperscript{3}) but substantially different $R^2$ (0.915 vs.\ 0.998). This divergence arises because $R^2$ is normalized by the total variance of the observed data: C4-T5 exhibits much larger volume variation (higher $\text{Var}(V^{\text{obs}})$), so the same absolute error yields a higher $R^2$. In contrast, C2-T2 has a narrower dynamic range, making its $R^2$ more sensitive to residual errors of comparable magnitude.}
 \label{tab:cv_metrics}
 \end{table}
 
-Figures~\ref{fig:c4t5_forecast}--\ref{fig:c4t5_long_forecast} show representative forecasting results for the C4-T5 group, including both short-term (14-day) and long-term (90-day) horizons. Comparative forecasts with and without immune activity illustrate the model's ability to quantify immune-mediated suppression effects.
+Figure~\ref{fig:c4t5_forecast} shows representative forecasting results for the C4-T5 group. Figure~\ref{fig:c4t5_forecasts_combined} presents both short-term (14-day) and long-term (90-day) forecast horizons with and without immune activity, illustrating the model's ability to quantify immune-mediated suppression effects across temporal scales.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{forecast_comparison.png}
@@ -269,35 +278,25 @@ Figures~\ref{fig:c4t5_forecast}--\ref{fig:c4t5_long_forecast} show representativ
 \end{figure}
 
 \begin{figure}[H]\centering
-\includegraphics[width=\linewidth]{forecast_short.png}
-\caption{Short-term (14-day) forecasting for C4-T5 with and without immune activity.}
-\label{fig:c4t5_short_forecast}
+\includegraphics[width=0.49\linewidth]{forecast_short.png}
+\includegraphics[width=0.49\linewidth]{forecast_long.png}
+\caption{Forecasting for C4-T5 with and without immune activity. Left: short-term (14-day) horizon. Right: long-term (90-day) horizon. The divergence between immune-present and immune-absent trajectories quantifies the cumulative effect of immune suppression.}
+\label{fig:c4t5_forecasts_combined}
 \end{figure}
 
-\begin{figure}[H]\centering
-\includegraphics[width=\linewidth]{forecast_long.png}
-\caption{Long-term (90-day) forecasting for C4-T5 with and without immune activity.}
-\label{fig:c4t5_long_forecast}
-\end{figure}
-
-The temporal evolution of learned parameters (Figure~\ref{fig:param_trajectories}) shows how growth rates, carrying capacities, and immune parameters adapt over time, providing biological insight into tumor--immune interaction dynamics.
+The temporal evolution of learned parameters (Figure~\ref{fig:param_trajectories}) shows how growth rates, carrying capacities, and immune parameters adapt over time, providing biological insight into tumor--immune interaction dynamics. We plot C4-T5 as it is the representative case used throughout the cross-validation analysis (achieving the highest held-out $R^2 = 0.998$ in Table~\ref{tab:cv_metrics}).
 
 \begin{figure}[H]\centering
-\includegraphics[width=\linewidth]{parameter_trajectories_history.png}
-\caption{Parameter evolution trajectories for case C2-T1 showing temporal dynamics of $r(t)$, $K(t)$, $c_{\text{kill}}(t)$, and $h_{\text{sat}}(t)$.}
+\includegraphics[width=\linewidth]{parameter_trajectories_C4T5.png}
+\caption{Parameter evolution trajectories for the representative case C4-T5, showing temporal dynamics of $r(t)$, $K(t)$, $c_{\text{kill}}(t)$, and $h_{\text{sat}}(t)$ with enlarged fonts for readability.}
 \label{fig:param_trajectories}
 \end{figure}
 
 \begin{figure}[H]\centering
-\includegraphics[width=0.8\linewidth]{r2_summary.png}
-\caption{Distribution of $R^2$ values across cross-validation folds.}
-\label{fig:r2_distribution}
-\end{figure}
-
-\begin{figure}[H]\centering
-\includegraphics[width=0.8\linewidth]{rmse_summary.png}
-\caption{Distribution of RMSE values across cross-validation folds.}
-\label{fig:rmse_distribution}
+\includegraphics[width=0.49\linewidth]{r2_summary.png}
+\includegraphics[width=0.49\linewidth]{rmse_summary.png}
+\caption{Cross-validation metric distributions. Left: $R^2$ values across held-out folds. Right: RMSE values across held-out folds.}
+\label{fig:r2_rmse_distributions}
 \end{figure}
 
 \subsection{Computational Performance}
@@ -318,17 +317,19 @@ From a software perspective, Julia's SciML ecosystem provides a cohesive develop
 
 This study has several important limitations that should be considered when interpreting the results.
 
-\textbf{Limited baselines.} Our comparison includes only classical mechanistic ODE models (Gompertz, Kuznetsov--Taylor, de Pillis--Radunskaya). We do not compare against modern data-driven baselines such as Neural ODEs \cite{chen2018node}, latent ODE models \cite{dupont2019augmented}, or Gaussian process regression, which could provide competitive or superior performance on this dataset. Future work should include these comparisons to properly contextualize the UDE approach.
+\textbf{Limited baselines.} Our comparison includes only classical mechanistic ODE models (Gompertz, Kuznetsov--Taylor, de Pillis--Radunskaya). We do not compare against modern data-driven baselines such as Neural ODEs \cite{chen2018node}, latent ODE models, or Gaussian process regression, which could provide competitive or superior performance on this dataset. Future work should include these comparisons to properly contextualize the UDE approach.
 
 \textbf{No ablation studies.} We do not systematically ablate model components (e.g., removing individual loss terms, varying network size, testing different mechanistic backbones). Such studies would clarify which design choices contribute most to performance and are an important direction for future work.
 
 \textbf{No uncertainty quantification.} Our models produce point predictions without confidence intervals. For any downstream application, uncertainty estimates are essential. Techniques such as ensemble methods, Monte Carlo dropout, or Bayesian neural network extensions could provide this, but are not implemented here.
 
-\textbf{Naming and interpretability.} While we use the term ``structured-parameter'' to describe the Phase~2 architecture, it is important to note that neural networks learn all four biological parameters as functions of state. The model is not mechanistic in the traditional sense---it is a neural model whose outputs are structured through a mechanistic template. The biological interpretability of individual parameter trajectories should be treated with caution, as the neural networks may exploit the functional form in ways that do not correspond to true biological mechanisms.
+\textbf{Extrapolation beyond training range.} Because the Phase~2 parameter networks take normalized time $t$ as a direct input, learned parameter functions may not generalize well beyond the training temporal window. The sigmoid-bounded activations mitigate divergence, but long-term forecasts should be treated as extrapolations with increasing uncertainty.
+
+\textbf{Naming and interpretability.} While we use the term ``structured-parameter'' to describe the Phase~2 architecture, it is important to note that neural networks learn all four biological parameters as functions of state. The model is not mechanistic in the traditional sense---it is a neural model whose outputs are structured through a mechanistic template. The biological interpretability of individual parameter trajectories should be treated with caution.
 
 \textbf{Dataset scope.} The dataset comes from a single experimental system with a small number of tumor--immune trajectories. Generalization to other tumor types, species, or experimental conditions has not been demonstrated. The single-compartment model also neglects spatial heterogeneity and metastatic dynamics.
 
-\textbf{Forecasting caveats.} The reported forecasting metrics (MAPE of 1.8\% short-term, 4.3\% medium-term) are computed on this specific dataset and should not be interpreted as indicative of performance on independent datasets or in applied settings. Long-term forecasts beyond the training data's temporal extent are extrapolations and should be treated accordingly.
+\textbf{Forecasting caveats.} The reported forecasting metrics are computed on this specific dataset and should not be interpreted as indicative of performance on independent datasets or in applied settings. Long-term forecasts beyond the training data's temporal extent are extrapolations and should be treated accordingly.
 
 % ===========================
 \section{Conclusions}
