@@ -67,6 +67,12 @@ const N_RANDOM_RESTARTS = 3      # Multiple initialization attempts
 # 1. ENHANCED Data Loading & Preprocessing
 ################################################################################
 
+"""
+    load_and_merge_data(time_file, immune_file) -> (DataFrame, Float64, Float64)
+
+Load dynamic time-series and static immune-rate CSVs, normalize tumor volumes,
+and return the merged DataFrame along with volume mean and standard deviation.
+"""
 function load_and_merge_data(time_file::String, immune_file::String)
     df_time = CSV.read(time_file, DataFrame; header=1)
     rename!(df_time, [:KineticID, :TumorID, :Time, :TumorVolume, :ImmuneCellCount])
@@ -201,6 +207,12 @@ function create_immune_interpolator(times::Vector{Float64}, fractions::Vector{Fl
     return create_cubic_spline_interpolator(unique_times, unique_fractions)
 end
 
+"""
+    process_groups(df) -> (Vector{TumorGroup}, Float64, Float64)
+
+Group the DataFrame by (KineticID, TumorID), build `TumorGroup` structs with
+cubic-spline immune interpolators, and return groups with global time bounds.
+"""
 function process_groups(df::DataFrame)
     groups = TumorGroup[]
     gdf = groupby(df, [:KineticID, :TumorID])
@@ -498,7 +510,13 @@ end
 # 6. ENHANCED Loss Function with Physics Constraints
 ################################################################################
 
-function compute_enhanced_loss(θ::Vector{Float64}, groups::Vector{TumorGroup}, 
+"""
+    compute_enhanced_loss(θ, groups, re_immune, re_corr, net_sizes, t_min, t_max; ...) -> Float64
+
+Compute the total physics-informed loss: volume MSE + derivative matching +
+negativity penalty + consistency prior + L2 regularization.
+"""
+function compute_enhanced_loss(θ::Vector{Float64}, groups::Vector{TumorGroup},
                               re_immune, re_corr, net_sizes::NetworkSizes,
                               t_min_global::Float64, t_max_global::Float64;
                               solver=Tsit5(), sensealg=InterpolatingAdjoint(), training_phase=1)
@@ -700,8 +718,14 @@ function train_enhanced_model(θ_init::Vector{Float64}, groups::Vector{TumorGrou
     return best_θ, losses, best_loss
 end
 
+"""
+    multi_restart_training(groups, t_min_global, t_max_global)
+
+Train the hybrid UDE with multiple random restarts (seeds 1042, 2042, 3042)
+to mitigate local minima. Returns the best parameters, loss history, and
+reconstructed networks.
+"""
 function multi_restart_training(groups::Vector{TumorGroup}, t_min_global::Float64, t_max_global::Float64)
-    """Train with multiple random restarts to avoid local minima"""
     best_θ = nothing
     best_loss = Inf
     best_losses = nothing
@@ -742,7 +766,13 @@ end
 # 8. Prediction Functions (Enhanced)
 ################################################################################
 
-function predict_group(group::TumorGroup, group_idx::Int, θ::Vector{Float64}, 
+"""
+    predict_group(group, group_idx, θ, groups, re_immune, re_corr, net_sizes, t_min, t_max; dense_time_points=100)
+
+Solve the hybrid UDE forward for a single tumor group and return dense
+predicted time points and volumes.
+"""
+function predict_group(group::TumorGroup, group_idx::Int, θ::Vector{Float64},
                       groups::Vector{TumorGroup}, re_immune, re_corr, net_sizes::NetworkSizes,
                       t_min_global::Float64, t_max_global::Float64;
                       dense_time_points=100)
@@ -1139,7 +1169,14 @@ end
 # 10. ENHANCED Main Pipeline
 ################################################################################
 
-function main(; time_file="tumor_time_to_event_data.csv", 
+"""
+    main(; time_file, immune_file, save_plots=true)
+
+Run the full Phase 1 (Hybrid UDE) pipeline: load data, train with multi-restart
+AdamW + L-BFGS, generate all plots and analysis. Results are saved to a
+timestamped directory under `enhanced_results_*/`.
+"""
+function main(; time_file="tumor_time_to_event_data.csv",
               immune_file="tumor_volume_vs_Im_cells_rate.csv",
               save_plots=true)
     

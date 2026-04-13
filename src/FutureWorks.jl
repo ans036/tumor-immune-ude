@@ -55,6 +55,12 @@ function safe_color(color_values::Vector{Float64}; colormap=:viridis)
     return [get(cmap, val) for val in normalized]
 end
 
+"""
+    load_dynamic_data(time_file) -> DataFrame
+
+Load the dynamic time-series CSV with columns (KineticID, TumorID, Time,
+TumorVolume, ImmuneCellCount) and normalize volumes and immune counts.
+"""
 function load_dynamic_data(time_file::String)
     df = CSV.read(time_file, DataFrame; header=1)
     rename!(df, [:KineticID, :TumorID, :Time, :TumorVolume, :ImmuneCellCount])
@@ -66,6 +72,12 @@ function load_dynamic_data(time_file::String)
     return df
 end
 
+"""
+    load_static_data(immune_rate_file) -> DataFrame
+
+Load the static immune-rate CSV (headerless, 2 columns: TumorVolume, Im_cells_rate)
+and normalize volumes. Used for physics-informed rank correlation constraints.
+"""
 function load_static_data(immune_rate_file::String)
     df = CSV.read(immune_rate_file, DataFrame; header=false)
     rename!(df, [:TumorVolume, :Im_cells_rate])
@@ -169,6 +181,13 @@ end
 # 5. Biologically Consistent ODE System - Pure Mechanistic
 ################################################################################
 
+"""
+    create_ode_system(group_idx, groups, re_dynamics, t_min_global, t_max_global)
+
+Build the structured-parameter UDE right-hand side for a given tumor group.
+Neural networks produce context-dependent Gompertz (r, K) and Michaelis-Menten
+(c_kill, h_sat) parameters, with sigmoid bounds enforcing biological plausibility.
+"""
 function create_ode_system(group_idx::Int, groups::Vector{TumorGroup}, re_dynamics,
                            t_min_global::Float64, t_max_global::Float64)
     function dudt(u, p, t)
@@ -226,6 +245,13 @@ function diff_median(x; beta=10.0)
     return sum(weights .* x, dims=2)
 end
 
+"""
+    compute_loss(θ, groups, df_static, re_dynamics, t_min, t_max; ...) -> Float64
+
+Compute the total loss: volume MSE + negativity penalty + consistency prior
+(immune should suppress growth) + physics prior (rank correlation with static
+immune data) + L2 regularization.
+"""
 function compute_loss(θ::Vector{Float64}, groups::Vector{TumorGroup}, df_static::DataFrame,
                       re_dynamics, t_min_global::Float64, t_max_global::Float64;
                       solver=Tsit5(), sensealg=InterpolatingAdjoint())
@@ -291,6 +317,13 @@ end
 # 7. Training
 ################################################################################
 
+"""
+    train_model(θ_init, groups, df_static, re_dynamics, t_min, t_max)
+
+Train the structured-parameter UDE using AdamW (up to 5000 iterations with
+cosine decay and validation-based early stopping, patience=200) followed by
+L-BFGS refinement (up to 500 iterations).
+"""
 function train_model(θ_init::Vector{Float64}, groups::Vector{TumorGroup}, df_static::DataFrame,
                      re_dynamics, t_min_global::Float64, t_max_global::Float64)
     losses = Float64[]
@@ -337,6 +370,12 @@ end
 # 8. Prediction Functions - Pure Mechanistic
 ################################################################################
 
+"""
+    predict_group(group, group_idx, θ, groups, re_dynamics, t_min, t_max; dense_time_points=100)
+
+Solve the structured-parameter UDE forward for a single tumor group and return
+dense predicted time points and volumes.
+"""
 function predict_group(group::TumorGroup, group_idx::Int, θ::Vector{Float64}, groups::Vector{TumorGroup},
                        re_dynamics, t_min_global::Float64, t_max_global::Float64; dense_time_points=100)
     dudt = create_ode_system(group_idx, groups, re_dynamics, t_min_global, t_max_global)
@@ -577,7 +616,13 @@ function create_all_plots(groups::Vector{TumorGroup}, df_static::DataFrame, θ::
     @info "✅ All plots saved to $save_dir and $enhanced_dir"
 end
 
-# ---------- Main ----------
+"""
+    main(; time_file, immune_rate_file, save_plots=true)
+
+Run the full Phase 2 (Structured-Parameter UDE) pipeline: load data, train with
+AdamW + L-BFGS, run cross-validation, generate forecasts and all plots. Results
+are saved to a timestamped directory under `pure_mechanistic_results_*/`.
+"""
 function main(; time_file="tumor_time_to_event_data.csv",
                immune_rate_file="tumor_volume_vs_Im_cells_rate.csv",
                save_plots=true)
