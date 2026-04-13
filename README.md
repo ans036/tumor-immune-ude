@@ -27,6 +27,52 @@ Continuous Integration installs Julia, caches dependencies, runs both test suite
 
 ---
 
+## Installation
+
+### Prerequisites
+
+- [Julia](https://julialang.org/downloads/) **1.9 or later** (tested on 1.9, 1.10, and 1.11)
+- Git
+
+### Clone and set up
+
+```bash
+git clone https://github.com/ans036/tumor-immune-ude.git
+cd tumor-immune-ude
+```
+
+### Install dependencies
+
+The project includes a `Project.toml` in `src/`. To install all dependencies into a reproducible environment:
+
+```bash
+julia --project=src -e 'using Pkg; Pkg.instantiate()'
+```
+
+Key dependencies (installed automatically): `DifferentialEquations.jl`, `Flux.jl`, `SciMLSensitivity.jl`, `Optimization.jl`, `Plots.jl`, `CSV.jl`, `DataFrames.jl`.
+
+Alternatively, the test scripts bootstrap a temporary environment and install packages automatically — no manual setup needed:
+
+```bash
+julia --color=yes test/runtests.jl
+```
+
+### Verify installation
+
+Run the test suite to confirm everything works:
+
+```bash
+# Phase 1 (Hybrid UDE) tests
+julia --color=yes test/runtests.jl
+
+# Phase 2 (Structured-Parameter UDE) tests
+julia --color=yes test/pure_mechanistic_tests.jl
+```
+
+Both should complete without errors and produce result plots in the `results/` directory.
+
+---
+
 ## Data format
 
 Supply two CSVs (paths can be absolute or relative):
