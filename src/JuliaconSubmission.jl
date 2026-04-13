@@ -1238,4 +1238,6 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     θ_final, losses, groups, re_immune, re_corr, net_sizes, t_min, t_max = main(
         time_file=joinpath(@__DIR__, "..", "Data", "tumor_time_to_event_data.csv"),
-        immune_file=joinpath(@__DIR__, "..", "Data", "tumor_volume_vs_Im_cells_r
+        immune_file=joinpath(@__DIR__, "..", "Data", "tumor_volume_vs_Im_cells_rate.csv"),
+    )
+end
