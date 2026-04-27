@@ -154,6 +154,12 @@ Built on the SciML stack (DiffEqFlux for neural/Universal DEs; OrdinaryDiffEq fo
 
 ---
 
+## Community guidelines
+
+Contributions are welcome! If you'd like to contribute, fix a bug, or suggest a feature, please [open an issue](https://github.com/ans036/tumor-immune-ude/issues) or submit a pull request. Be respectful and constructive in discussions. For detailed contribution instructions, see [CONTRIBUTING.md](CONTRIBUTING.md). For questions or support, please open an issue with the `question` label.
+
+---
+
 ## Continuous Integration details
 
 The workflow:

@@ -118,16 +118,30 @@ A physics prior aligns learned immune parameters with observed killing rates via
 \mathcal{L}_{\text{physics}} = \lambda_{\text{phys}}\left(1 - \rho_{\text{rank}}(I_{\text{static}}, \hat{c}_{\text{kill}})\right)^2
 \label{eq:physics_prior}
 \end{equation}
-The total loss combines volume fitting, physics priors, negativity penalties, consistency, and $L_2$ regularization:
+The Phase~1 (hybrid UDE) total loss combines volume fitting, derivative matching, a smoothness penalty, physics priors, negativity penalties, and $L_2$ regularization:
 \begin{align}
-\mathcal{L} &= \lambda_{\text{vol}} \mathcal{L}_{\text{volume}} + \lambda_{\text{phys}} \mathcal{L}_{\text{physics}} + \lambda_{\text{neg}} \mathcal{L}_{\text{negativity}} + \lambda_{\text{cons}} \mathcal{L}_{\text{consistency}} + \lambda_{\text{reg}} \mathcal{L}_{\text{reg}}
+\mathcal{L}^{(1)} &= w_{\text{vol}}\,\lambda_{\text{vol}} \mathcal{L}_{\text{volume}}
++ w_{\text{deriv}}\,\lambda_{\text{deriv}} \mathcal{L}_{\text{deriv}} \nonumber\\
+&\quad + \lambda_{\text{smooth}} \mathcal{L}_{\text{smooth}}
++ \lambda_{\text{phys}} \mathcal{L}_{\text{physics}} \nonumber\\
+&\quad + \lambda_{\text{neg}} \mathcal{L}_{\text{negativity}} + \lambda_{\text{reg}} \mathcal{L}_{\text{reg}}
 \label{eq:total_loss}
 \end{align}
-where $\mathcal{L}_{\text{volume}} = \frac{1}{N}\sum_{g,j}(\hat{V}_g(t_{g,j}) - V^{\text{obs}}_g(t_{g,j}))^2$ is the mean squared error between predicted and observed tumor volumes across all $N$ data points, $\mathcal{L}_{\text{negativity}} = \sum_{g,j}\max(0, -\hat{V}_g(t_{g,j}))^2$ penalizes non-physical negative volume predictions, and $\mathcal{L}_{\text{reg}} = \|\boldsymbol{\theta}_{\text{nn}}\|_2^2$ is $L_2$ weight decay on neural network parameters. The weights $\lambda_{\text{vol}}=1.0$, $\lambda_{\text{phys}}=0.1$, $\lambda_{\text{neg}}=10^{-3}$, $\lambda_{\text{cons}}=0.5$, and $\lambda_{\text{reg}}=10^{-5}$ were selected by grid search on training loss convergence and biological consistency.
+where the individual terms are:
+\begin{itemize}[leftmargin=*]
+  \item $\mathcal{L}_{\text{volume}} = \frac{1}{N}\sum_{g,j}(\hat{V}_g(t_{g,j}) - V^{\text{obs}}_g(t_{g,j}))^2$: mean squared error between predicted and observed tumor volumes ($N$ = total data points across groups);
+  \item $\mathcal{L}_{\text{deriv}} = \frac{1}{M}\sum_{g,j}\bigl(\dot{\hat{V}}_g(t_{g,j}) - \dot{V}^{\text{obs}}_g(t_{g,j})\bigr)^2$: derivative-matching loss, where $\dot{V}^{\text{obs}}$ is estimated from observations by central finite differences and $\dot{\hat{V}}$ is the model RHS evaluated at the predicted state. This term encourages the learned dynamics, not just the integrated trajectory, to match the data;
+  \item $\mathcal{L}_{\text{smooth}} = \sum_{g,j}\bigl(\hat{V}_g(t_{j+1}) - 2\hat{V}_g(t_j) + \hat{V}_g(t_{j-1})\bigr)^2$: a discrete second-difference smoothness penalty on the predicted trajectory, which discourages spurious high-frequency oscillations introduced by the neural sub-networks (this corresponds to the constant \texttt{$\lambda$\_SMOOTH} in the source code);
+  \item $\mathcal{L}_{\text{negativity}} = \sum_{g,j}\max(0, -\hat{V}_g(t_{g,j}))^2$: penalizes non-physical negative volume predictions;
+  \item $\mathcal{L}_{\text{reg}} = \|\boldsymbol{\theta}_{\text{nn}}\|_2^2$: $L_2$ weight decay on neural-network parameters.
+\end{itemize}
+The two \emph{phase-dependent} weights $w_{\text{vol}}$ and $w_{\text{deriv}}$ implement curriculum-style scheduling: during the AdamW phase ($\text{phase}=1$) we use $w_{\text{vol}}=1.0$, $w_{\text{deriv}}=1.0$, prioritizing trajectory fitting; during the L-BFGS refinement phase ($\text{phase}=2$) we shift to $w_{\text{vol}}=0.8$, $w_{\text{deriv}}=1.5$, increasing the influence of the derivative-matching term on local refinement. The fixed weights are $\lambda_{\text{vol}}=1.0$, $\lambda_{\text{deriv}}=10^{-2}$, $\lambda_{\text{smooth}}=10^{-3}$, $\lambda_{\text{phys}}=0.1$, $\lambda_{\text{neg}}=10^{-3}$, $\lambda_{\text{reg}}=10^{-5}$, selected by grid search on training-loss convergence and biological consistency. The Phase~2 (structured-parameter UDE) loss replaces the smoothness and derivative terms with the consistency prior $\mathcal{L}_{\text{consistency}}$ defined in Eq.~\ref{eq:consistency_prior}, retaining $\mathcal{L}_{\text{volume}}$, $\mathcal{L}_{\text{physics}}$, $\mathcal{L}_{\text{negativity}}$, and $\mathcal{L}_{\text{reg}}$. The naming used here---\emph{smoothness}, \emph{consistency}, etc.---corresponds directly to the loss terms in the source code (\texttt{src/JuliaconSubmission.jl} and \texttt{src/FutureWorks.jl}); the \texttt{smooth\_penalty} variable in the code is the smoothness term above, and the \texttt{consistency\_loss} variable in the Phase~2 code is the consistency prior.
 
 \subsection{Training Protocol}
 
 Training uses a two-phase approach: (1) AdamW with learning rate $10^{-3}$, cosine decay, and up to 5\,000 iterations with validation-based early stopping, followed by (2) L-BFGS refinement from the best AdamW parameters (up to 500 iterations). Early stopping uses a patience of 200 iterations, meaning training halts if the validation loss does not improve for 200 consecutive iterations; the model checkpoint with the lowest validation loss is retained. L-BFGS terminates when the gradient norm falls below $10^{-8}$ (the default convergence criterion in Optim.jl) or the maximum iteration count is reached, whichever comes first.
+
+\textbf{Note on AdamW iteration budget.} The 5\,000-iteration upper bound is intentionally loose: in practice, the validation-based early-stopping rule typically terminates the AdamW phase well before the cap is reached (the loss curves in Figures~\ref{fig:hybrid_training_loss}--\ref{fig:pure_training_loss} flatten by roughly $\sim$500--1\,000 iterations). Because the L-BFGS phase initializes from the lowest-validation-loss checkpoint, retaining the high cap incurs little additional cost and provides a safety margin for groups whose loss landscape has not yet stabilized; tightening the cap to $\sim$500--1\,000 iterations would yield comparable final fits at lower training cost. We prioritized robustness over efficiency given the relatively short per-fold training times ($\sim$15--30 minutes).
 
 \textbf{Hyperparameter bounds.} The parameter ranges $r \in [0.01, 2.0]$~day$^{-1}$, $c \in [0.001, 10.0]$~day$^{-1}$, and $h \in [0.01, 5.0]$ (normalized volume units) were chosen based on published estimates from the tumor-modeling literature. Growth rates are bounded by experimentally observed doubling times for solid tumors \cite{vaghi2020gompertz}. Killing rate and half-saturation bounds span the physiologically plausible range reported in Kuznetsov et~al.\ \cite{kuznetsov1994} and de~Pillis et~al.\ \cite{depillis2005validated}, scaled to our normalized volume units. Sigmoid activations map unbounded neural network outputs into these intervals.
 
@@ -146,9 +160,9 @@ We use Tsit5() with InterpolatingAdjoint() for gradient computation, with tolera
 
 \subsection{Data}
 
-The temporal dataset (\texttt{tumor\_time\_to\_event\_data.csv}) contains time-series measurements across immune conditions (C2, C3, C4) and tumor scenarios (T1--T5), with tumor volumes (mm\textsuperscript{3}) and concurrent immune cell measurements. A static dataset (\texttt{tumor\_volume\_vs\_Im\_cells\_rate.csv}) provides 39 paired measurements of tumor volume and immune killing rates (rank correlation $r = -0.82$), used for physics-informed constraints.
+The temporal dataset (\texttt{tumor\_time\_to\_event\_data.csv}) contains longitudinal tumor-volume measurements from a controlled in~vitro tumor--immune co-culture experiment, in which tumor cells were grown under three distinct levels of administered immune (effector) cell concentration (C2, C3, C4) and across five tumor replicates/scenarios (T1--T5). For each (KineticID, TumorID) pair the dataset records: discrete observation times (in days), the measured tumor volume (mm\textsuperscript{3}), and the concurrently measured immune cell count. Measurements were taken at days $t \in \{14, 15, 21, 22, 28, 29, 36\}$, i.e.\ approximately weekly with a paired observation each week, giving up to 7 time points per group (some groups have fewer due to missing or excluded measurements). A static dataset (\texttt{tumor\_volume\_vs\_Im\_cells\_rate.csv}) provides 39 paired measurements of tumor volume and immune killing rate (rank correlation $r = -0.82$), used for physics-informed constraints. Both CSVs are included in the repository under \texttt{Data/}; they are derived from the experimental records of the present study and are not drawn from a previously published dataset.
 
-Tumor volumes are normalized by 1000~mm\textsuperscript{3} for numerical stability. Sparse immune measurements are interpolated using cubic splines. Data is grouped by \{KineticID, TumorID\}, excluding groups with fewer than 2 time points.
+The reported forecast windows in Section~\ref{sec:results} (e.g.\ days 15--36 in Figures~\ref{fig:c4t5_forecast}--\ref{fig:c4t5_forecasts_combined}) correspond to the empirical observation interval of this dataset; the lower bound is the first observation time and the upper bound is the last. Tumor volumes are normalized by 1000~mm\textsuperscript{3} for numerical stability. Sparse immune measurements are interpolated using cubic splines. Data is grouped by \{KineticID, TumorID\}, excluding groups with fewer than 2 time points.
 
 \subsection{Cross-Validation Design}
 
@@ -164,6 +178,7 @@ The implementation is a modular Julia package. \texttt{EnhancedPINODE.jl} implem
 
 % ===========================
 \section{Results}
+\label{sec:results}
 
 \subsection{Model Performance Comparison}
 
@@ -288,7 +303,7 @@ The temporal evolution of learned parameters (Figure~\ref{fig:param_trajectories
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{parameter_trajectories_C4T5.png}
-\caption{Parameter evolution trajectories for the representative case C4-T5, showing temporal dynamics of $r(t)$, $K(t)$, $c_{\text{kill}}(t)$, and $h_{\text{sat}}(t)$ with enlarged fonts for readability.}
+\caption{Parameter evolution trajectories for the representative case C4-T5. Each subpanel shows one learned parameter as a function of time within the C4-T5 forecast window: top-left, growth rate $r(t)$ (day$^{-1}$); top-right, carrying capacity $K(t)$ (mm$^{3}$); bottom-left, immune killing rate $c_{\text{kill}}(t)$ (day$^{-1}$); bottom-right, half-saturation constant $h_{\text{sat}}(t)$ (mm$^{3}$). Each curve is the corresponding parameter for this single group; there are no series labeled ``y1'' (axis labels and panel titles identify the quantity directly). Fonts have been enlarged for publication readability.}
 \label{fig:param_trajectories}
 \end{figure}
 
