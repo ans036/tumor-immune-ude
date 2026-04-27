@@ -73,6 +73,17 @@ Both should complete without errors and produce result plots in the `results/` d
 
 ---
 
+## Data source
+
+The CSVs under `Data/` are obtained unmodified from the publicly released tumor-growth dataset by **Atsou et al.** ([github.com/kevin-atsou/tumorgrowth](https://github.com/kevin-atsou/tumorgrowth/tree/main/data), CC0 license). The data accompany:
+
+- Atsou K., Anjuère F., Braud V. M., Goudon T. (2021). *A size and space structured model of tumor growth describes a key role for protumor immune cells in breaking equilibrium states in tumorigenesis.* **PLOS ONE** 16(11): e0259291. [doi:10.1371/journal.pone.0259291](https://doi.org/10.1371/journal.pone.0259291)
+- Atsou K., Khou S., Anjuère F., Braud V. M., Goudon T. (2022). *Analysis of the equilibrium phase in immune-controlled tumors provides hints for designing better strategies for cancer treatment.* **Frontiers in Oncology** 12: 878827. [doi:10.3389/fonc.2022.878827](https://doi.org/10.3389/fonc.2022.878827)
+
+Originating experiments use the mSCC38 squamous cell carcinoma cell line in FVB/N mice. See [`Data/README.md`](Data/README.md) for column structure and full attribution.
+
+---
+
 ## Data format
 
 Supply two CSVs (paths can be absolute or relative):
