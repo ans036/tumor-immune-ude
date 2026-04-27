@@ -1,5 +1,15 @@
 # Tumor-UDE: Physics-Informed & Pure-Mechanistic UDEs for Tumor–Immune Dynamics
 
+[![CI](https://github.com/ans036/tumor-immune-ude/actions/workflows/ci.yml/badge.svg)](https://github.com/ans036/tumor-immune-ude/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Julia ≥ 1.9](https://img.shields.io/badge/Julia-%E2%89%A5%201.9-purple.svg)](https://julialang.org/)
+[![JuliaCon Proceedings](https://img.shields.io/badge/JuliaCon-Proceedings%20Review%20%23204-blue)](https://github.com/JuliaCon/proceedings-review/issues/204)
+[![DOI Pending](https://img.shields.io/badge/DOI-pending-lightgrey)](https://github.com/JuliaCon/proceedings-review/issues/204)
+
+> **Companion code for the JuliaCon Proceedings submission**
+> *Biologically Consistent Universal Differential Equations for Tumor–Immune Dynamics: Towards a More Interpretable Approach* — Anish Sarkar (2026).
+> Manuscript and figures: [`paper/`](paper/) · Reviewer proceedings issue: [JuliaCon/proceedings-review#204](https://github.com/JuliaCon/proceedings-review/issues/204) · Citation file: [`CITATION.cff`](CITATION.cff)
+
 This repository contains two Julia pipelines for modeling tumor–immune dynamics from time-series tumor volume and immune measurements:
 
 - **Classic (Enhanced PI-NODE)** — Physics-informed neural ODE with residual/correction subnetworks and multi-restart training (`src/JuliaconSubmission.jl`).
@@ -14,13 +24,28 @@ Both pipelines output training curves, observed vs predicted trajectories, count
 ```
 .
 ├── src/
-│   ├── JuliaconSubmission.jl      # Classic: enhanced PI-NODE pipeline
-│   └── FutureWorks.jl             # Future works: pure-mechanistic UDE
+│   ├── JuliaconSubmission.jl      # Phase 1: enhanced PI-NODE / hybrid UDE pipeline
+│   ├── FutureWorks.jl             # Phase 2: pure-mechanistic / structured-parameter UDE
+│   └── Project.toml               # Julia environment (deps for both pipelines)
 ├── test/
-│   ├── runtests.jl                # Classic smoke/basics
-│   └── pure_mechanistic_tests.jl  # Future-works smoke/basics
+│   ├── runtests.jl                # Phase 1 smoke/basics
+│   └── pure_mechanistic_tests.jl  # Phase 2 smoke/basics
+├── Data/
+│   ├── tumor_time_to_event_data.csv         # Longitudinal tumor + immune measurements
+│   ├── tumor_volume_vs_Im_cells_rate.csv    # Static volume vs killing-rate pairs
+│   └── README.md                            # Data attribution, citations, column key
+├── paper/
+│   ├── paper.tex                  # JuliaCon proceedings manuscript
+│   ├── paper.yml                  # JuliaCon metadata
+│   ├── ref.bib                    # Bibliography
+│   └── figures/                   # Publication figures
+├── enhanced_results_2025-07-20_161123/      # Saved Phase 1 example outputs
+├── results_PureMechanisticUDE_2025-07-19_112322/  # Saved Phase 2 example outputs
 ├── .github/workflows/ci.yml       # Matrix CI (classic & pure) + artifact upload
-└── results/                       # Created at runtime (plots & analysis)
+├── CITATION.cff                   # Machine-readable citation metadata
+├── CONTRIBUTING.md                # Contribution workflow
+├── INSTALLATION.md                # Step-by-step install + system requirements
+└── LICENSE                        # MIT
 ```
 
 Continuous Integration installs Julia, caches dependencies, runs both test suites, and uploads result folders/ZIPs as build artifacts for each matrix target.
@@ -168,6 +193,58 @@ Built on the SciML stack (DiffEqFlux for neural/Universal DEs; OrdinaryDiffEq fo
 ## Community guidelines
 
 Contributions are welcome! If you'd like to contribute, fix a bug, or suggest a feature, please [open an issue](https://github.com/ans036/tumor-immune-ude/issues) or submit a pull request. Be respectful and constructive in discussions. For detailed contribution instructions, see [CONTRIBUTING.md](CONTRIBUTING.md). For questions or support, please open an issue with the `question` label.
+
+---
+
+## Citation
+
+If you use this software in your research, please cite **both** the JuliaCon proceedings paper and the original tumor-immune dataset by Atsou et al. A machine-readable [`CITATION.cff`](CITATION.cff) is included so GitHub auto-populates the *"Cite this repository"* widget at the top of this page.
+
+**This work (preferred citation):**
+
+```bibtex
+@inproceedings{sarkar2026tumorude,
+  title     = {Biologically Consistent Universal Differential Equations for
+               Tumor--Immune Dynamics: Towards a More Interpretable Approach},
+  author    = {Sarkar, Anish},
+  booktitle = {Proceedings of the JuliaCon Conferences},
+  year      = {2026},
+  url       = {https://github.com/ans036/tumor-immune-ude},
+  note      = {Under review at JuliaCon Proceedings (issue \#204)}
+}
+```
+
+**Dataset (please also cite):**
+
+```bibtex
+@article{atsou2021size,
+  title   = {A size and space structured model of tumor growth describes a key
+             role for protumor immune cells in breaking equilibrium states in
+             tumorigenesis},
+  author  = {Atsou, Kevin and Anjuere, Fabienne and Braud, Veronique M. and
+             Goudon, Thierry},
+  journal = {PLOS ONE},
+  volume  = {16},
+  number  = {11},
+  pages   = {e0259291},
+  year    = {2021},
+  doi     = {10.1371/journal.pone.0259291}
+}
+
+@article{atsou2022equilibrium,
+  title   = {Analysis of the equilibrium phase in immune-controlled tumors
+             provides hints for designing better strategies for cancer treatment},
+  author  = {Atsou, Kevin and Khou, Sokchea and Anjuere, Fabienne and
+             Braud, Veronique M. and Goudon, Thierry},
+  journal = {Frontiers in Oncology},
+  volume  = {12},
+  pages   = {878827},
+  year    = {2022},
+  doi     = {10.3389/fonc.2022.878827}
+}
+```
+
+See [`Data/README.md`](Data/README.md) for full data-source attribution and column structure.
 
 ---
 

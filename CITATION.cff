@@ -1,0 +1,72 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the JuliaCon proceedings paper (preferred) and the original tumor-immune dataset by Atsou et al."
+title: "Tumor-Immune UDE: Biologically Consistent Universal Differential Equations for Tumor-Immune Dynamics"
+authors:
+  - family-names: "Sarkar"
+    given-names: "Anish"
+    orcid: "https://orcid.org/0009-0009-7965-7788"
+    affiliation: "Netaji Subhash Engineering College (MAKAUT)"
+version: "1.0.0"
+date-released: "2026-04-13"
+url: "https://github.com/ans036/tumor-immune-ude"
+repository-code: "https://github.com/ans036/tumor-immune-ude"
+license: MIT
+keywords:
+  - "Universal Differential Equations"
+  - "Scientific Machine Learning"
+  - "Neural ODEs"
+  - "Physics-Informed Neural Networks"
+  - "Tumor-Immune Dynamics"
+  - "Gompertz Growth"
+  - "Michaelis-Menten Kinetics"
+  - "Julia"
+  - "SciML"
+preferred-citation:
+  type: conference-paper
+  title: "Biologically Consistent Universal Differential Equations for Tumor-Immune Dynamics: Towards a more interpretable approach"
+  authors:
+    - family-names: "Sarkar"
+      given-names: "Anish"
+      orcid: "https://orcid.org/0009-0009-7965-7788"
+      affiliation: "Netaji Subhash Engineering College (MAKAUT)"
+  collection-title: "Proceedings of the JuliaCon Conferences"
+  year: 2026
+  url: "https://github.com/JuliaCon/proceedings-review/issues/204"
+references:
+  - type: article
+    title: "A size and space structured model of tumor growth describes a key role for protumor immune cells in breaking equilibrium states in tumorigenesis"
+    authors:
+      - family-names: "Atsou"
+        given-names: "Kevin"
+      - family-names: "Anjuere"
+        given-names: "Fabienne"
+      - family-names: "Braud"
+        given-names: "Veronique M."
+      - family-names: "Goudon"
+        given-names: "Thierry"
+    journal: "PLOS ONE"
+    volume: 16
+    issue: 11
+    start: "e0259291"
+    year: 2021
+    doi: "10.1371/journal.pone.0259291"
+    notes: "Source of the tumor-immune dataset used in this work (CC0); see https://github.com/kevin-atsou/tumorgrowth"
+  - type: article
+    title: "Analysis of the equilibrium phase in immune-controlled tumors provides hints for designing better strategies for cancer treatment"
+    authors:
+      - family-names: "Atsou"
+        given-names: "Kevin"
+      - family-names: "Khou"
+        given-names: "Sokchea"
+      - family-names: "Anjuere"
+        given-names: "Fabienne"
+      - family-names: "Braud"
+        given-names: "Veronique M."
+      - family-names: "Goudon"
+        given-names: "Thierry"
+    journal: "Frontiers in Oncology"
+    volume: 12
+    start: 878827
+    year: 2022
+    doi: "10.3389/fonc.2022.878827"
+    notes: "Documents the originating in vivo experiments (mSCC38 squamous cell carcinoma in FVB/N mice)."
