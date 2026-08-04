@@ -79,7 +79,7 @@ where $R_{\text{kill}}$ denotes the immune killing rate, $I(t)$ is immune cell c
 
 \subsection{Phase 1: Dual-Network Hybrid UDE}
 
-The Gompertz model (Eq.~\ref{eq:gompertz}) describes tumor growth in isolation but does not account for immune cell interactions. Classical models like Kuznetsov--Taylor \cite{kuznetsov1994} address this through explicit effector-cell compartments, but require many parameters and strong mechanistic assumptions. Our hybrid approach instead uses neural networks to \emph{learn} the immune interaction and residual temporal dynamics directly from data, while retaining the well-established Gompertz backbone. This avoids prescribing the functional form of immune suppression a priori, allowing the data to reveal which interactions matter. The hybrid UDE augments Gompertz growth with two neural networks:
+The Gompertz model (Eq.~\ref{eq:gompertz}) describes tumor growth in isolation but does not account for immune cell interactions. Classical models like Kuznetsov--Taylor \cite{kuznetsov1994} address this through explicit effector-cell compartments, but require the modeler to prescribe the functional form of the immune interaction and to calibrate its biologically named parameters---several of which are difficult to identify from sparse data (we quantify this trade-off in Section~\ref{sec:param-count}). Our hybrid approach instead uses neural networks to \emph{learn} the immune interaction and residual temporal dynamics directly from data, while retaining the well-established Gompertz backbone. This avoids prescribing the functional form of immune suppression a priori, allowing the data to reveal which interactions matter. The hybrid UDE augments Gompertz growth with two neural networks:
 \begin{align}
 \frac{dV}{dt} &= \underbrace{r_g V \ln\left(\frac{K_g}{V}\right)}_{\text{Gompertz}} - \underbrace{\alpha_g \phi_{\text{IRN}}(V_n, I_n)}_{\text{Learned Immune}} + \underbrace{\beta w(V_n) \phi_{\text{TACN}}(V_n, t_n)}_{\text{Temporal Correction}}
 \label{eq:dual_network_ude}
@@ -206,6 +206,36 @@ de Pillis--Radunskaya & Immune + therapy terms & None & 0.845 \\
 \label{tab:model_comparison}
 \end{table*}
 
+\subsection{Parameter Count and the Nature of Model Complexity}
+\label{sec:param-count}
+
+A recurring motivation for hybrid modeling is that classical mechanistic models are ``parameter-heavy.'' We make this comparison explicit and, in doing so, clarify what it does and does not mean here. Table~\ref{tab:param_counts} reports exact counts; the UDE figures were extracted directly from the model objects (\texttt{length(Flux.destructure(nn)[1])}), and the classical figures from the reference model definitions.
+
+The Kuznetsov--Taylor model is a two-compartment ODE system (effector cells $E$, tumor cells $T$) with eight kinetic parameters $\{s,p,g,m,d,a,b,n\}$ (BioModels \texttt{BIOMD0000000762}) \cite{kuznetsov1994}; the de Pillis--Radunskaya system adds NK-cell, CD8\textsuperscript{+}, and circulating-lymphocyte compartments together with therapy terms, on the order of twenty parameters \cite{depillis2005validated}. By contrast, our structured-parameter UDE (Phase~2) contains a single shared network of $5{,}476$ weights, and the dual-network hybrid (Phase~1) contains $10{,}242$ network weights plus three scalar parameters for each of the eleven groups it retains.
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{States} & \textbf{Mech.} & \textbf{NN} & \textbf{Total} \\
+ & & \textbf{params} & \textbf{weights} & \\
+\midrule
+Gompertz & 1 & 2 & --- & 2 \\
+Kuznetsov--Taylor & 2 & 8 & --- & 8 \\
+de Pillis--Radunskaya & 4 & $\sim$20 & --- & $\sim$20 \\
+\midrule
+Hybrid UDE (Phase 1) & 1 & 3/group & 10{,}242 & 10{,}275 \\
+Struct.-Param. UDE (Phase 2) & 1 & 4 (fns) & 5{,}476 & 5{,}476 \\
+\bottomrule
+\end{tabular}
+\caption{Exact parameter counts. ``Mech.\ params'' are the biologically named constants a modeler must specify or estimate; ``NN weights'' are neural-network parameters fit jointly by gradient descent. Phase~2's count is independent of the number of groups because context enters through the network inputs rather than through per-group constants; ``4 (fns)'' denotes the four interpretable parameters $r,K,c,h$ realized as functions of state.}
+\label{tab:param_counts}
+\end{table}
+
+Read at face value, these counts show that the UDE has \emph{more} free parameters than the classical models, not fewer---as expected for a neural function approximator. The meaningful distinction is therefore not the raw count but the role each parameter plays. In a classical model, every parameter is a biologically named constant the modeler must fix or estimate, and Kuznetsov et~al.\ themselves note that several of their constants ``cannot be measured in~vivo'' and had to be inferred by fitting; with sparse data such constants are frequently non-identifiable. In the UDE, the neural weights are not individually interpreted---they are jointly regularized nuisance parameters---while the biologically meaningful quantities remain the same small set as the classical models ($r$, $K$, $c$, $h$), now recovered as data-driven, context-dependent functions rather than hand-tuned constants (Section~\ref{sec:immune-interp}).
+
+The UDE thus does not reduce the raw parameter count; it reduces the \emph{modeler-specified structure} and the \emph{manual-calibration burden}. It requires no a~priori choice of the immune-interaction functional form, and its interpretable parameters are calibrated automatically under physics-informed regularization. We state this trade-off precisely here to avoid the earlier, looser suggestion of outright parameter parsimony.
+
 \subsection{Phase 1: Hybrid UDE}
 
 The hybrid UDE converges stably through both AdamW and L-BFGS phases, achieving $R^2 = 0.897$ (Figure~\ref{fig:hybrid_training_loss}). The Immune Response Network learns biologically meaningful patterns: volume-dependent activation consistent with antigen presentation, saturation at high immune fractions, and threshold effects at low immune levels (Figure~\ref{fig:irn_surface}). The Time-Aware Correction Network captures temporal effects not present in the mechanistic backbone (Figure~\ref{fig:tacn_surface}). While the correction magnitude does increase over time---reflecting growing discrepancy between the Gompertz backbone and observed dynamics---the \emph{rate of increase} in correction diminishes at late times, indicating that the learned correction approaches an asymptotic regime rather than diverging. We use ``stabilization'' to refer to this plateauing behavior of the correction's derivative, not a decrease in absolute magnitude. Learned parameters exhibit group-specific variation (Figure~\ref{fig:hybrid_params}): growth rates span $r \in [0.10, 0.34]$~day$^{-1}$ across groups, with the C4$|$T5 group learning the highest rate ($r = 0.34$~day$^{-1}$) consistent with its rapid observed growth. Immune strength parameters $\alpha$ range from 0.11 to 0.38, showing group-level variation that reflects the interplay between immune cell counts and tumor-specific sensitivity rather than a simple monotonic relationship.
@@ -261,6 +291,26 @@ The structured-parameter UDE achieves $R^2 = 0.991$ on training data (Figure~\re
 \caption{Component dynamics for C4$|$T2: Gompertz growth, immune killing, and net growth.}
 \label{fig:components}
 \end{figure}
+
+\subsection{Interpretation of the Learned Immune Interaction}
+\label{sec:immune-interp}
+
+Section~\ref{sec:param-count} argued that the UDE's value lies in learning the immune-interaction \emph{form} rather than in parameter parsimony. Here we test whether the workflow actually recovers a mechanistically \emph{meaningful} immune term---the missing ingredient of plain Gompertz growth---rather than an opaque curve fit. We evaluate the trained Phase~2 killing rate $R_{\text{kill}}(V,I)=c(V,t,I)\,V\,I/(h(V,t,I)+V)$ over the observed data domain and characterise it quantitatively (Figure~\ref{fig:immune_interp}). Four properties emerge:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{Monotone in immune level.} Holding volume at its median, $R_{\text{kill}}$ increases monotonically with immune-cell count across the observed range (Figure~\ref{fig:immune_interp}a), recovering the expectation that more effector cells produce more killing.
+\item \textbf{Saturating in volume (Michaelis--Menten).} Holding immune level fixed, $R_{\text{kill}}$ rises and saturates with $V$, reaching half its maximum near $V\approx 256$~mm\textsuperscript{3}; the learned term thus reproduces the Michaelis--Menten shape as an emergent property of the fit rather than by fiat.
+\item \textbf{Grounded in independent data.} The learned killing coefficient $c$ correlates with the held-out static killing-rate measurements at Spearman $\rho = 0.80$ (Figure~\ref{fig:immune_interp}b). Because these 39 measurements never enter the volume-fitting loss, the interaction is anchored to data beyond the trajectories it was trained on.
+\item \textbf{Temporally structured.} For the representative group C4-T5, the killing \emph{efficiency} $c(t)$ peaks early ($\sim$day~22) whereas the realised killing \emph{rate} $R_{\text{kill}}(t)$ peaks later ($\sim$day~36), as the effector and tumor populations both accumulate (Figure~\ref{fig:immune_interp}e). This temporal ordering---efficiency leading realised effect---is a mechanistic insight that a fixed-parameter model cannot express.
+\end{enumerate}
+
+The learned parameters stay within biologically plausible ranges---$c \in [6.1, 9.4]$~day\textsuperscript{-1} and $h \in [0.9, 2.5]\times10^{3}$~mm\textsuperscript{3} (Figure~\ref{fig:immune_interp}d)---and vary smoothly with state rather than collapsing to constants, which is exactly the context-dependence the structured-parameter design targets. Decomposing $\mathrm{d}V/\mathrm{d}t$ for C4-T5 (Figure~\ref{fig:immune_interp}c) shows Gompertz growth (up to $\sim$409~mm\textsuperscript{3}/day) and immune killing (up to $\sim$402~mm\textsuperscript{3}/day) largely cancelling to a small net rate ($\leq 28$~mm\textsuperscript{3}/day), so the immune term contributes a median of $87\%$ of the growth magnitude at observed points. We flag honestly that these two large, nearly-cancelling terms are a known tendency of over-expressive UDEs; the net trajectory is well-determined but the individual term magnitudes should be read with the interpretability caveats of Section~\ref{sec:limitations}. Taken together, the learned term is monotone in immune level, saturating in volume, grounded in independent measurements, and temporally structured---i.e.\ the workflow supplies the immune interaction that Gompertz growth lacks, which is the substantive advantage claimed over the classical baselines.
+
+\begin{figure*}[t]\centering
+\includegraphics[width=0.9\textwidth]{learned_immune_interaction.png}
+\caption{Interpretation of the learned Phase~2 immune interaction term. (a)~Learned killing rate $R_{\text{kill}}(V,I)$ over the data domain. (b)~Learned killing coefficient $c$ versus independent static killing-rate measurements (Spearman $\rho=0.80$). (c)~Mechanistic decomposition of $\mathrm{d}V/\mathrm{d}t$ for group C4-T5 into Gompertz growth and immune killing (large, nearly-cancelling terms). (d)~Context-dependent learned parameters $c(V,I)$ and $h(V,I)$. (e)~Learned immune parameters over time overlaid on the C4-T5 growth trajectory: killing efficiency $c(t)$ peaks early while the realised killing rate $R_{\text{kill}}(t)$ peaks late.}
+\label{fig:immune_interp}
+\end{figure*}
 
 \subsection{Cross-Validation and Forecasting}
 

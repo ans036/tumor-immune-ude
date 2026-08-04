@@ -254,7 +254,7 @@ immune data) + L2 regularization.
 """
 function compute_loss(θ::Vector{Float64}, groups::Vector{TumorGroup}, df_static::DataFrame,
                       re_dynamics, t_min_global::Float64, t_max_global::Float64;
-                      solver=Tsit5(), sensealg=InterpolatingAdjoint())
+                      solver=Tsit5(), sensealg=InterpolatingAdjoint(), abstol=1e-8, reltol=1e-8)
 
     vol_loss, neg_penalty, count_vol = 0.0, 0.0, 0
     consistency_loss = 0.0
@@ -264,7 +264,7 @@ function compute_loss(θ::Vector{Float64}, groups::Vector{TumorGroup}, df_static
     for (i, group) in enumerate(groups)
         dudt = create_ode_system(i, groups, re_dynamics, t_min_global, t_max_global)
         prob = ODEProblem(dudt, group.u0, group.tspan, θ)
-        sol = solve(prob, solver; saveat=group.times, sensealg=sensealg, abstol=1e-8, reltol=1e-8, dense=false)
+        sol = solve(prob, solver; saveat=group.times, sensealg=sensealg, abstol=abstol, reltol=reltol, dense=false)
         if !SciMLBase.successful_retcode(sol.retcode); return 1e6; end
 
         for (j, u_pred) in enumerate(sol.u)
