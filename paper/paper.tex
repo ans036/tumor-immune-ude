@@ -354,9 +354,9 @@ Figure~\ref{fig:c4t5_forecast} shows representative forecasting results for the 
 
 The temporal evolution of learned parameters (Figure~\ref{fig:param_trajectories}) shows how growth rates, carrying capacities, and immune parameters adapt over time, providing biological insight into tumor--immune interaction dynamics. We plot C4-T5 as it is the representative case used throughout the cross-validation analysis (achieving the highest held-out $R^2 = 0.998$ in Table~\ref{tab:cv_metrics}).
 
-\begin{figure}[H]\centering
+\begin{figure}[tbp]\centering
 \includegraphics[width=\linewidth]{parameter_trajectories_C4T5.png}
-\caption{Parameter evolution trajectories for the representative case C4-T5. Each subpanel shows one learned parameter as a function of time within the C4-T5 forecast window: top-left, growth rate $r(t)$ (day$^{-1}$); top-right, carrying capacity $K(t)$ (mm$^{3}$); bottom-left, immune killing rate $c_{\text{kill}}(t)$ (day$^{-1}$); bottom-right, half-saturation constant $h_{\text{sat}}(t)$ (mm$^{3}$). Each curve is the corresponding parameter for this single group; there are no series labeled ``y1'' (axis labels and panel titles identify the quantity directly). Fonts have been enlarged for publication readability.}
+\caption{Learned parameter trajectories for the representative case C4-T5: growth rate $r(t)$ (top-left), carrying capacity $K(t)$ (top-right), immune killing rate $c_{\text{kill}}(t)$ (bottom-left), and half-saturation constant $h_{\text{sat}}(t)$ (bottom-right), each as a function of time over the forecast window.}
 \label{fig:param_trajectories}
 \end{figure}
 
